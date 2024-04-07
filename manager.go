@@ -59,38 +59,34 @@ func (m *Manager) startCleanup() {
 func (m *Manager) cleanup() {
 	m.pagesMu.Lock()
 	defer m.pagesMu.Unlock()
-	timeout := time.Now().Add(-m.config.ExpireTime)
 
-	for _, page := range m.pages {
-		if page.lastUsed.After(timeout) {
-			delete(m.pages, page.ID)
+	now := time.Now()
+	for id, paginator := range m.pages {
+		if now.Sub(paginator.lastUsed) > m.config.ExpireTime {
+			delete(m.pages, id)
 		}
 	}
 }
 
 func (m *Manager) Update(responderFunc events.InteractionResponderFunc, pages Pages) error {
-	pages.lastUsed = time.Now()
 	m.add(&pages)
 
 	return responderFunc(discord.InteractionResponseTypeUpdateMessage, m.makeMessageUpdate(&pages))
 }
 
 func (m *Manager) Create(responderFunc events.InteractionResponderFunc, pages Pages, ephemeral bool) error {
-	pages.lastUsed = time.Now()
 	m.add(&pages)
 
 	return responderFunc(discord.InteractionResponseTypeCreateMessage, m.makeMessageCreate(&pages, ephemeral))
 }
 
 func (m *Manager) UpdateMessage(client bot.Client, channelID snowflake.ID, messageID snowflake.ID, pages Pages) (*discord.Message, error) {
-	pages.lastUsed = time.Now()
 	m.add(&pages)
 
 	return client.Rest().UpdateMessage(channelID, messageID, m.makeMessageUpdate(&pages))
 }
 
 func (m *Manager) CreateMessage(client bot.Client, channelID snowflake.ID, pages Pages, ephemeral bool) (*discord.Message, error) {
-	pages.lastUsed = time.Now()
 	m.add(&pages)
 
 	return client.Rest().CreateMessage(channelID, m.makeMessageCreate(&pages, ephemeral))
@@ -99,6 +95,8 @@ func (m *Manager) CreateMessage(client bot.Client, channelID snowflake.ID, pages
 func (m *Manager) add(paginator *Pages) {
 	m.pagesMu.Lock()
 	defer m.pagesMu.Unlock()
+
+	paginator.lastUsed = time.Now()
 	m.pages[paginator.ID] = paginator
 }
 
