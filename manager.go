@@ -200,40 +200,50 @@ func (m *Manager) createComponents(pages *Pages) discord.ContainerComponent {
 	var actionRow discord.ActionRowComponent
 
 	if cfg.First != nil {
-		actionRow = actionRow.AddComponents(
-			discord.NewButton(cfg.First.Style, cfg.First.Label, m.formatCustomID(pages, "first"), "").
-				WithEmoji(cfg.First.Emoji).
-				WithDisabled(pages.currentPage == 0),
-		)
+		actionRow = actionRow.AddComponents(discord.ButtonComponent{
+			Style:    cfg.First.Style,
+			Label:    cfg.First.Label,
+			Emoji:    &cfg.First.Emoji,
+			CustomID: m.formatCustomID(pages, "first"),
+			Disabled: pages.currentPage == 0,
+		})
 	}
 	if cfg.Back != nil {
-		actionRow = actionRow.AddComponents(
-			discord.NewButton(cfg.Back.Style, cfg.Back.Label, m.formatCustomID(pages, "back"), "").
-				WithEmoji(cfg.Back.Emoji).
-				WithDisabled(pages.currentPage == 0),
-		)
+		actionRow = actionRow.AddComponents(discord.ButtonComponent{
+			Style:    cfg.Back.Style,
+			Label:    cfg.Back.Label,
+			Emoji:    &cfg.Back.Emoji,
+			CustomID: m.formatCustomID(pages, "back"),
+			Disabled: pages.currentPage == 0,
+		})
 	}
 
 	if cfg.Stop != nil {
-		actionRow = actionRow.AddComponents(
-			discord.NewButton(cfg.Stop.Style, cfg.Stop.Label, m.formatCustomID(pages, "stop"), "").
-				WithEmoji(cfg.Stop.Emoji),
-		)
+		actionRow = actionRow.AddComponents(discord.ButtonComponent{
+			Style:    cfg.Stop.Style,
+			Label:    cfg.Stop.Label,
+			Emoji:    &cfg.Stop.Emoji,
+			CustomID: m.formatCustomID(pages, "stop"),
+		})
 	}
 
 	if cfg.Next != nil {
-		actionRow = actionRow.AddComponents(
-			discord.NewButton(cfg.Next.Style, cfg.Next.Label, m.formatCustomID(pages, "next"), "").
-				WithEmoji(cfg.Next.Emoji).
-				WithDisabled(pages.currentPage == pages.Pages-1),
-		)
+		actionRow = actionRow.AddComponents(discord.ButtonComponent{
+			Style:    cfg.Next.Style,
+			Label:    cfg.Next.Label,
+			Emoji:    &cfg.Next.Emoji,
+			CustomID: m.formatCustomID(pages, "next"),
+			Disabled: pages.currentPage == pages.Pages-1,
+		})
 	}
 	if cfg.Last != nil {
-		actionRow = actionRow.AddComponents(
-			discord.NewButton(cfg.Last.Style, cfg.Last.Label, m.formatCustomID(pages, "last"), "").
-				WithEmoji(cfg.Last.Emoji).
-				WithDisabled(pages.currentPage == pages.Pages-1),
-		)
+		actionRow = actionRow.AddComponents(discord.ButtonComponent{
+			Style:    cfg.Last.Style,
+			Label:    cfg.Last.Label,
+			Emoji:    &cfg.Last.Emoji,
+			CustomID: m.formatCustomID(pages, "last"),
+			Disabled: pages.currentPage == pages.Pages-1,
+		})
 	}
 
 	return actionRow
