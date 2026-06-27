@@ -2,6 +2,7 @@ package paginator
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +24,7 @@ const (
 
 type Pages struct {
 	ID          string
-	PageFunc    func(page int, embed *discord.EmbedBuilder)
+	PageFunc    func(page int, embed discord.Embed) discord.Embed
 	Pages       int
 	Creator     snowflake.ID
 	ExpireMode  ExpireMode
@@ -82,14 +83,13 @@ func (m *Manager) Create(responderFunc events.InteractionResponderFunc, pages Pa
 
 func (m *Manager) UpdateMessage(client bot.Client, channelID snowflake.ID, messageID snowflake.ID, pages Pages) (*discord.Message, error) {
 	m.add(&pages)
-
-	return client.Rest().UpdateMessage(channelID, messageID, m.makeMessageUpdate(&pages))
+	return client.Rest.UpdateMessage(channelID, messageID, m.makeMessageUpdate(&pages))
 }
 
 func (m *Manager) CreateMessage(client bot.Client, channelID snowflake.ID, pages Pages, ephemeral bool) (*discord.Message, error) {
 	m.add(&pages)
 
-	return client.Rest().CreateMessage(channelID, m.makeMessageCreate(&pages, ephemeral))
+	return client.Rest.CreateMessage(channelID, m.makeMessageCreate(&pages, ephemeral))
 }
 
 func (m *Manager) add(paginator *Pages) {
@@ -119,15 +119,15 @@ func (m *Manager) OnEvent(event bot.Event) {
 	paginatorID, action := ids[1], ids[2]
 	paginator, ok := m.pages[paginatorID]
 	if !ok {
-		if err := e.UpdateMessage(discord.NewMessageUpdateBuilder().ClearContainerComponents().Build()); err != nil {
-			e.Client().Logger().Error("Failed to remove components from timed out paginator: ", err)
+		if err := e.UpdateMessage(discord.NewMessageUpdate().ClearComponents()); err != nil {
+			e.Client().Logger.Error("Failed to remove components from timed out paginator", slog.Any("err", err))
 		}
 		return
 	}
 
 	if paginator.Creator != 0 && paginator.Creator != e.User().ID {
-		if err := e.CreateMessage(discord.NewMessageCreateBuilder().SetContent(m.config.NoPermissionMessage).SetEphemeral(true).Build()); err != nil {
-			e.Client().Logger().Error("Failed to send error message: ", err)
+		if err := e.CreateMessage(discord.NewMessageCreate().WithContent(m.config.NoPermissionMessage).WithEphemeral(true)); err != nil {
+			e.Client().Logger.Error("Failed to send error message", slog.Any("err", err))
 		}
 		return
 	}
@@ -140,10 +140,10 @@ func (m *Manager) OnEvent(event bot.Event) {
 		paginator.currentPage--
 
 	case "stop":
-		err := e.UpdateMessage(discord.MessageUpdate{Components: &[]discord.ContainerComponent{}})
+		err := e.UpdateMessage(discord.NewMessageUpdate().ClearComponents())
 		m.remove(paginatorID)
 		if err != nil {
-			e.Client().Logger().Error("Error updating paginator message: ", err)
+			e.Client().Logger.Error("Error updating paginator message", slog.Any("err", err))
 		}
 		return
 
@@ -159,17 +159,16 @@ func (m *Manager) OnEvent(event bot.Event) {
 	}
 
 	if err := e.UpdateMessage(m.makeMessageUpdate(paginator)); err != nil {
-		e.Client().Logger().Error("Error updating paginator message: ", err)
+		e.Client().Logger.Error("Error updating paginator message", slog.Any("err", err))
 	}
 }
 
 func (m *Manager) makeEmbed(paginator *Pages) discord.Embed {
-	embedBuilder := discord.NewEmbedBuilder().
-		SetFooterText(fmt.Sprintf("Page: %d/%d", paginator.currentPage+1, paginator.Pages)).
-		SetColor(m.config.EmbedColor)
+	baseEmbed := discord.NewEmbed().
+		WithFooterText(fmt.Sprintf("Page: %d/%d", paginator.currentPage+1, paginator.Pages)).
+		WithColor(m.config.EmbedColor)
 
-	paginator.PageFunc(paginator.currentPage, embedBuilder)
-	return embedBuilder.Build()
+	return paginator.PageFunc(paginator.currentPage, baseEmbed)
 }
 
 func (m *Manager) makeMessageCreate(pages *Pages, ephemeral bool) discord.MessageCreate {
@@ -179,7 +178,7 @@ func (m *Manager) makeMessageCreate(pages *Pages, ephemeral bool) discord.Messag
 	}
 	return discord.MessageCreate{
 		Embeds:     []discord.Embed{m.makeEmbed(pages)},
-		Components: []discord.ContainerComponent{m.createComponents(pages)},
+		Components: []discord.LayoutComponent{m.createComponents(pages)},
 		Flags:      flags,
 	}
 }
@@ -187,7 +186,7 @@ func (m *Manager) makeMessageCreate(pages *Pages, ephemeral bool) discord.Messag
 func (m *Manager) makeMessageUpdate(pages *Pages) discord.MessageUpdate {
 	return discord.MessageUpdate{
 		Embeds:     &[]discord.Embed{m.makeEmbed(pages)},
-		Components: &[]discord.ContainerComponent{m.createComponents(pages)},
+		Components: &[]discord.LayoutComponent{m.createComponents(pages)},
 	}
 }
 
@@ -195,7 +194,7 @@ func (m *Manager) formatCustomID(paginator *Pages, action string) string {
 	return m.config.CustomIDPrefix + ":" + paginator.ID + ":" + action
 }
 
-func (m *Manager) createComponents(pages *Pages) discord.ContainerComponent {
+func (m *Manager) createComponents(pages *Pages) discord.LayoutComponent {
 	cfg := m.config.ButtonsConfig
 	var actionRow discord.ActionRowComponent
 
